@@ -58,6 +58,8 @@
 (require 'pcache)
 (require 's)
 
+(defvar magit-gh-pulls-message '())
+
 (defun magit-gh-pulls-get-api ()
   (gh-pulls-api "api" :sync t :num-retries 1 :cache (gh-cache "cache")))
 
@@ -222,8 +224,9 @@
             (make-instance 'gh-repos-ref :user (make-instance 'gh-users-user :name user)
                            :repo (make-instance 'gh-repos-repo :name proj)
                            :ref (completing-read (format "Head (%s):" current) '() nil nil nil nil current)))
-           (title (read-string "Title:"))
-           (body (read-string "Description:"))
+           (issue (progn (magit-gh-pulls-edit) magit-gh-pulls-message))
+           (title (car issue))
+           (body (mapconcat 'identity (cdr issue) ""))
            (req (make-instance 'gh-pulls-request :head head :base base :body body :title title))) req)))
 
 (defun magit-gh-pulls-create-pull-request ()
@@ -290,6 +293,36 @@
 (defun turn-on-magit-gh-pulls ()
   "Unconditionally turn on `magit-pulls-mode'."
   (magit-gh-pulls-mode 1))
+
+(defun magit-gh-pulls-edit-quit ()
+  (interactive)
+  (kill-buffer)
+  (delete-window))
+
+(defun magit-gh-pulls-edit-save ()
+  (interactive)
+  (setq magit-gh-pulls-message (split-string (buffer-string) "\n\n"))
+  (magit-gh-pulls-edit-quit))
+
+(defvar magit-gh-pulls-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") 'magit-gh-pulls-edit-save)
+    (define-key map (kbd "C-c C-k") 'magit-gh-pulls-edit-quit)
+    map)
+  "docstring")
+
+;;;###autoload
+(define-derived-mode magit-gh-pulls-edit-mode git-commit-mode "Clasker Edit"
+  "docstring")
+
+(defun magit-gh-pulls-edit ()
+  (interactive)
+  (with-temp-buffer
+    (magit-gh-pulls-edit-mode)
+    (switch-to-buffer (current-buffer))))
+
+
+
 
 (provide 'magit-gh-pulls)
 ;; Local Variables:

@@ -297,7 +297,8 @@
 (defun magit-gh-pulls-edit-quit ()
   (interactive)
   (kill-buffer)
-  (delete-window))
+  (if (not (one-window-p t 'l))
+    (delete-window)))
 
 (defun magit-gh-pulls-edit-save ()
   (interactive)

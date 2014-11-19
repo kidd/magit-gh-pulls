@@ -1,5 +1,6 @@
 * magit-gh-pulls
 
+  foo
   magit-gh-pulls is a [[https://github.com/magit/magit][Magit]] extension that allows you to conveniently manipulate
   Github's pull requests from Emacs.
 

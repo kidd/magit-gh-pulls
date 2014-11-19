@@ -44,6 +44,7 @@
 ;; # g f --- fetches the commits associated with the pull request at point
 ;; # g b --- helps you creating a topic branch from a review request
 ;; # g m --- merges the PR on top of the current branch
+;; # g c --- creates a PR from the current branch
 
 ;; Then, you can do whatever you want with the commit objects associated with
 ;; the pull request (merge, cherry-pick, diff, ...)
@@ -56,6 +57,8 @@
 (require 'gh-pulls)
 (require 'pcache)
 (require 's)
+
+(defvar magit-gh-pulls-message '())
 
 (defun magit-gh-pulls-get-api ()
   (gh-pulls-api "api" :sync t :num-retries 1 :cache (gh-cache "cache")))
@@ -209,6 +212,34 @@
                                (car k))
                           (pcache-invalidate cache k))))))
 
+
+(defun magit-gh-pulls-build-req (user proj)
+  (let ((current (replace-regexp-in-string "origin/" ""
+                                           (magit-get-remote/branch (magit-get-current-branch)))))
+    (let* ((base
+            (make-instance 'gh-repos-ref :user (make-instance 'gh-users-user :name user)
+                           :repo (make-instance 'gh-repos-repo :name proj)
+                           :ref (completing-read "Base (master):" '() nil nil nil nil "master")))
+           (head
+            (make-instance 'gh-repos-ref :user (make-instance 'gh-users-user :name user)
+                           :repo (make-instance 'gh-repos-repo :name proj)
+                           :ref (completing-read (format "Head (%s):" current) '() nil nil nil nil current)))
+           (issue (progn (magit-gh-pulls-edit) magit-gh-pulls-message))
+           (title (car issue))
+           (body (mapconcat 'identity (cdr issue) ""))
+           (req (make-instance 'gh-pulls-request :head head :base base :body body :title title))) req)))
+
+(defun magit-gh-pulls-create-pull-request ()
+  (interactive)
+  (let ((repo (magit-gh-pulls-guess-repo)))
+    (when repo
+      (let* ((current-branch (magit-get-current-branch))
+            (api (magit-gh-pulls-get-api))
+            (user (car repo))
+            (proj (cdr repo))
+            (req (magit-gh-pulls-build-req user proj)))
+       (gh-pulls-new api user proj req)))))
+
 (defun magit-gh-pulls-reload ()
   (interactive)
   (let ((creds (magit-gh-pulls-guess-repo)))
@@ -237,6 +268,7 @@
     (define-key map (kbd "# g f") 'magit-gh-pulls-fetch-commits)
     (define-key map (kbd "# g g") 'magit-gh-pulls-reload)
     (define-key map (kbd "# g m") 'magit-gh-pulls-merge-pull-request)
+    (define-key map (kbd "# g c") 'magit-gh-pulls-create-pull-request)
     map))
 
 (defvar magit-gh-pulls-mode-lighter " Pulls")
@@ -261,6 +293,37 @@
 (defun turn-on-magit-gh-pulls ()
   "Unconditionally turn on `magit-pulls-mode'."
   (magit-gh-pulls-mode 1))
+
+(defun magit-gh-pulls-edit-quit ()
+  (interactive)
+  (kill-buffer)
+  (if (not (one-window-p t 'l))
+    (delete-window)))
+
+(defun magit-gh-pulls-edit-save ()
+  (interactive)
+  (setq magit-gh-pulls-message (split-string (buffer-string) "\n\n"))
+  (magit-gh-pulls-edit-quit))
+
+(defvar magit-gh-pulls-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") 'magit-gh-pulls-edit-save)
+    (define-key map (kbd "C-c C-k") 'magit-gh-pulls-edit-quit)
+    map)
+  "docstring")
+
+;;;###autoload
+(define-derived-mode magit-gh-pulls-edit-mode git-commit-mode "Clasker Edit"
+  "docstring")
+
+(defun magit-gh-pulls-edit ()
+  (interactive)
+  (with-temp-buffer
+    (magit-gh-pulls-edit-mode)
+    (switch-to-buffer (current-buffer))))
+
+
+
 
 (provide 'magit-gh-pulls)
 ;; Local Variables:

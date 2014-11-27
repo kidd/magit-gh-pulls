@@ -222,9 +222,10 @@
             (make-instance 'gh-repos-ref :user (make-instance 'gh-users-user :name user)
                            :repo (make-instance 'gh-repos-repo :name proj)
                            :ref (completing-read (format "Head (%s):" current) '() nil nil nil nil current)))
-           (title (read-string "Title:"))
-           (body (read-string "Description:"))
-           (req (make-instance 'gh-pulls-request :head head :base base :body body :title title))) req)))
+           (title (read-string "Title: "))
+           (body (read-string "Description: "))
+           (req (make-instance 'gh-pulls-request :head head :base base :body body :title title)))
+      req)))
 
 (defun magit-gh-pulls-create-pull-request ()
   (interactive)
@@ -235,7 +236,7 @@
             (user (car repo))
             (proj (cdr repo))
             (req (magit-gh-pulls-build-req user proj)))
-       (gh-pulls-new api user proj req)))))
+        (kill-new (oref (gh-pulls-new api user proj req) :url))))))
 
 (defun magit-gh-pulls-reload ()
   (interactive)
